@@ -1,0 +1,135 @@
+---
+title: "Assignment 3"
+author: "William Halim"
+date: '2022-10-01'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r message=FALSE}
+#libraries needed for analysis
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+## 1.Reading and saving the data into R
+```{r, echo=TRUE}
+#let's import the csv file using read_csv function
+storm_event_details_98 <- read_csv("ANA515/StormEvents_details-ftp_v1.0_d1998_c20220425 2.csv")
+#let' see the storm event details data for 1998
+head(storm_event_details_98)
+```
+
+## 2.Limit the dataframe to the following columns
+
+##### 1. the beginning and ending dates and times (make sure to keep BEGIN_DATE_TIME and END_DATE_TIME) 
+##### 2. the episode ID
+##### 3. the event ID
+##### 4. the state name and FIPS
+##### 5. the “CZ” name
+##### 6. type
+##### 7. FIPS
+##### 8. the event type 
+##### 9. the source
+##### 10. the beginning latitude and longitude and ending latitude and longitude 
+
+```{r echo=TRUE}
+#Limit the data frame by selecting the required columns and save it as a new data frame
+storm_event_details_98_subset <- storm_event_details_98 %>% select(BEGIN_YEARMONTH, BEGIN_DATE_TIME, END_DATE_TIME, EPISODE_ID, EVENT_ID, STATE, STATE_FIPS, CZ_NAME, CZ_TYPE, CZ_FIPS, EVENT_TYPE, SOURCE, BEGIN_LAT, BEGIN_LON, END_LAT, END_LON)
+head(storm_event_details_98_subset)
+```
+
+## 3.Arrange the data by Begin Year and Month (BEGIN_YEARMONTH)
+
+```{r echo=TRUE}
+#let's arrange the data by Begin Year and Month (BEGIN_YEARMONTH)
+storm_event_details_98_subset %>% arrange(BEGIN_YEARMONTH)
+```
+
+## 4.Change state and county names to title case
+```{r echo=TRUE}
+#let's change state names to title case (e.g., “New Jersey” instead of “NEW JERSEY”)
+storm_event_details_98_subset$state_title_case <- str_to_title(storm_event_details_98_subset$STATE, locale = "en")
+head(storm_event_details_98_subset$state_title_case, 100)
+```
+
+```{r echo=TRUE}
+#let's change county names to title case
+storm_event_details_98_subset$county_title_case <- str_to_title(storm_event_details_98_subset$CZ_NAME, locale = "en")
+head(storm_event_details_98_subset$county_title_case, 100)
+```
+
+
+## 5.Limit to the events listed by county FIPS (CZ_TYPE of “C”) and then remove the CZ_TYPE column 
+```{r echo=TRUE}
+storm_event_details_98_subset %>% filter(CZ_TYPE == "C") %>% select(-CZ_TYPE)
+```
+
+## 6.	Pad the state and county FIPS with a “0” at the beginning and then unite the two columns to make one fips column with the 5 or 6-digit county FIPS code 
+
+```{r echo=TRUE}
+#let's pad state FIPS
+storm_event_details_98_subset$STATE_FIPS_padded <- str_pad(storm_event_details_98_subset$STATE_FIPS, width =3, side = "left", pad = "0")
+head(storm_event_details_98_subset$STATE_FIPS_padded, 100)
+```
+
+
+```{r echo=TRUE}
+#let's pad county FIPS
+storm_event_details_98_subset$CZ_FIPS_padded <- str_pad(storm_event_details_98_subset$CZ_FIPS, width =3, side = "left", pad = "0")
+head(storm_event_details_98_subset$CZ_FIPS_padded, 100)
+```
+
+```{r echo=TRUE}
+#let's union the padded state and county FIPS to make one fips column
+storm_event_details_98_subset <- storm_event_details_98_subset %>%
+  unite("fips", c(STATE_FIPS_padded,CZ_FIPS_padded), remove = FALSE, sep = "")
+head(storm_event_details_98_subset$fips, 100)
+```
+
+## 7.Change all the column names to lower case 
+```{r echo=TRUE}
+#let's rename all column names to lower case
+storm_event_details_98_subset <- storm_event_details_98_subset %>%  rename_all(tolower)
+#let's check if column names have been changed to lower case
+colnames(storm_event_details_98_subset)
+```
+
+## 8.There is data that comes with base R on U.S. states (data("state")). Use that to create a dataframe with these three columns: state name, area, and region
+
+```{r echo=TRUE}
+us_state_data <- data.frame(state=state.name, region=state.region, area=state.area)
+head(us_state_data)
+```
+
+## 9.Create a dataframe with the number of events per state in the year of birth. Merge in the state information dataframe created in step 8. Remove any states that are not in the state information dataframe.
+
+```{r echo=TRUE}
+#let's create a dataframe with the number of events per state in the year of my birth
+newset <- data.frame(table(storm_event_details_98_subset$STATE))
+head(newset)
+#Let's merge in the state information dataframe created in step 8. Let's remove any states that are not in the state information dataframe.
+#Before doing merge let's make sure column names and data matches
+#let's rename column name Var1 to state in event_freq_per_state dataframe
+newset1 <- rename(newset, c("state" = "Var1"))
+new_merged <- merge(x = newset1, y = us_state_data, by.x = "state", by.y = "state")
+head(new_merged)
+view(new_merged)
+```
+
+## Create a plot of number of storm events in 1998 vs land area in square miles
+```{r echo=TRUE}
+new_merged %>% 
+  ggplot(aes(x=area, y=Freq)) +
+  geom_point(aes(color = region)) +
+  labs(x = "Land area (square miles)",
+       y = "# storm events in 1998")
+  
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
